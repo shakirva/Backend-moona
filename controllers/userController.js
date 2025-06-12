@@ -2,8 +2,7 @@ const db = require('../config/db');
 const axios = require('axios');
 require('dotenv').config();
 
-const SHOPIFY_API_URL = `${process.env.SHOPIFY_STORE}/admin/api/${process.env.SHOPIFY_API_VERSION}/customers.json`;
-
+const SHOPIFY_API_URL = `https://${process.env.SHOPIFY_STORE}/admin/api/${process.env.SHOPIFY_API_VERSION}/customers.json`;
 const shopifyHeaders = {
   headers: {
     'X-Shopify-Access-Token': process.env.SHOPIFY_API_PASSWORD,
@@ -11,94 +10,72 @@ const shopifyHeaders = {
   },
 };
 
-// ✅ Get users (Local DB + Shopify + Shopify Address)
+// GET all users (from local DB)
 exports.getUsers = async (req, res) => {
   try {
-    const [users] = await db.query('SELECT id, name, email, mobile, device_id, coins FROM users');
-
-    const shopifyResponse = await axios.get(SHOPIFY_API_URL, shopifyHeaders);
-    const shopifyCustomers = shopifyResponse.data.customers;
-
-    const mergedUsers = users.map(user => {
-      const shopifyData = shopifyCustomers.find(c => c.email === user.email) || {};
-      const address = shopifyData.default_address || {};
-
-      return {
-        ...user,
-        shopify_id: shopifyData.id || null,
-        shopify_total_spent: shopifyData.total_spent || '0.00',
-        shopify_orders_count: shopifyData.orders_count || 0,
-        shopify_created_at: shopifyData.created_at || null,
-        address1: address.address1 || '',
-        address2: address.address2 || '',
-        city: address.city || '',
-        province: address.province || '',
-        zip: address.zip || '',
-        country: address.country || '',
-      };
-    });
-
-    res.json(mergedUsers);
+    const [users] = await db.query(`
+      SELECT id, shopify_id, name, email, mobile, coins,
+             shopify_total_spent, shopify_orders_count, shopify_created_at,
+             address1, address2, city, province, zip, country
+      FROM users
+    `);
+    res.json(users);
   } catch (error) {
     console.error('Error fetching users with Shopify data:', error.message);
-    res.status(500).json({ error: 'Failed to fetch users with Shopify data' });
+    res.status(500).json({ error: 'Failed to load users' });
   }
 };
 
-// ✅ Create or update user manually
-exports.saveUser = async (req, res) => {
-  const { id, name, email, mobile, device_id } = req.body;
-
-  try {
-    if (id) {
-      await db.query(
-        'UPDATE users SET name = ?, email = ?, mobile = ?, device_id = ? WHERE id = ?',
-        [name, email, mobile, device_id, id]
-      );
-      res.json({ message: 'User updated successfully' });
-    } else {
-      await db.query(
-        'INSERT INTO users (name, email, mobile, device_id, coins) VALUES (?, ?, ?, ?, ?)',
-        [name, email, mobile, device_id, 0]
-      );
-      res.json({ message: 'User created successfully' });
-    }
-  } catch (err) {
-    console.error('Error saving user:', err.message);
-    res.status(500).json({ error: 'Failed to save user' });
-  }
-};
-
-// ✅ Sync Shopify customers to local MySQL
+// Sync Shopify customers to MySQL
 exports.syncShopifyCustomers = async (req, res) => {
   try {
-    const shopifyResponse = await axios.get(SHOPIFY_API_URL, shopifyHeaders);
-    const customers = shopifyResponse.data.customers;
+    const { data } = await axios.get(SHOPIFY_API_URL, shopifyHeaders);
+    const customers = data.customers;
 
-    for (const customer of customers) {
-      const email = customer.email;
-      const name = `${customer.first_name || ''} ${customer.last_name || ''}`.trim();
-      const mobile = customer.phone || '';
-      const device_id = ''; // optional
+    for (const c of customers) {
+      const address = c.default_address || {};
+      const [existing] = await db.query('SELECT id FROM users WHERE shopify_id = ?', [c.id]);
 
-      const [existing] = await db.query('SELECT id FROM users WHERE email = ?', [email]);
+      const userData = [
+        c.id, // shopify_id
+        (c.first_name || c.last_name) ? `${c.first_name || ''} ${c.last_name || ''}`.trim() : 'N/A',
+        c.email || 'N/A',
+        c.phone || 'N/A',
+        parseFloat(c.total_spent || 0),
+        c.orders_count || 0,
+        c.created_at ? new Date(c.created_at) : null,
+        address.address1 || '',
+        address.address2 || '',
+        address.city || '',
+        address.province || '',
+        address.zip || '',
+        address.country || '',
+      ];
 
       if (existing.length > 0) {
         await db.query(
-          'UPDATE users SET name = ?, mobile = ?, device_id = ? WHERE email = ?',
-          [name, mobile, device_id, email]
+          `UPDATE users SET
+            name = ?, email = ?, mobile = ?, shopify_total_spent = ?,
+            shopify_orders_count = ?, shopify_created_at = ?, address1 = ?,
+            address2 = ?, city = ?, province = ?, zip = ?, country = ?
+           WHERE shopify_id = ?`,
+          [...userData.slice(1), userData[0]]
         );
       } else {
         await db.query(
-          'INSERT INTO users (name, email, mobile, device_id, coins) VALUES (?, ?, ?, ?, ?)',
-          [name, email, mobile, device_id, 0]
+          `INSERT INTO users (
+            shopify_id, name, email, mobile,
+            shopify_total_spent, shopify_orders_count, shopify_created_at,
+            address1, address2, city, province, zip, country
+          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+          userData
         );
       }
     }
 
-    res.json({ message: 'Shopify customers synced to MySQL successfully' });
-  } catch (err) {
-    console.error('Sync error:', err.message);
-    res.status(500).json({ error: 'Failed to sync customers from Shopify' });
+    res.json({ message: 'Shopify customers synced to local DB' });
+  } catch (error) {
+    console.error('Error syncing Shopify customers:', error.message);
+    res.status(500).json({ error: 'Failed to sync Shopify customers' });
   }
 };

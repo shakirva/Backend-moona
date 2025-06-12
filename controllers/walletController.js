@@ -1,43 +1,55 @@
 const pool = require('../config/db');
 
-// ➕ Credit coins
+// ➕ Credit coins using shopify_id
 exports.creditCoins = async (req, res) => {
-  const { user_id, order_id, amount } = req.body;
-  if (!user_id || !amount || !order_id) {
-    return res.status(400).json({ error: 'user_id, order_id, and amount are required' });
+  const { shopify_id, order_id, amount } = req.body;
+
+  if (!shopify_id || !order_id || !amount) {
+    return res.status(400).json({ error: 'shopify_id, order_id, and amount are required' });
   }
 
-  const coins = Math.floor(amount / 10);
-
   try {
-    const [[user]] = await pool.query('SELECT coins FROM users WHERE id = ?', [user_id]);
-    if (!user) return res.status(404).json({ error: 'User not found' });
+    // 1. Get the user by Shopify ID
+    const [userRows] = await pool.query('SELECT * FROM users WHERE shopify_id = ?', [shopify_id]);
+    const user = userRows[0];
 
-    const updatedCoins = user.coins + coins;
+    if (!user) {
+      return res.status(404).json({ error: 'User not found' });
+    }
 
-    await pool.query('UPDATE users SET coins = ? WHERE id = ?', [updatedCoins, user_id]);
+    const user_id = user.id;
 
+    // 2. Update the user coins
+    const newBalance = user.coins + amount;
+    await pool.query('UPDATE users SET coins = ? WHERE id = ?', [newBalance, user_id]);
+
+    // 3. Insert transaction
     await pool.query(
-      'INSERT INTO coin_transactions (user_id, order_id, coins, type, available_coins) VALUES (?, ?, ?, ?, ?)',
-      [user_id, order_id, coins, 'credit', updatedCoins]
+      'INSERT INTO coin_transactions (user_id, shopify_id, order_id, type, coins, available_coins) VALUES (?, ?, ?, ?, ?, ?)',
+      [user_id, shopify_id, order_id, 'credit', amount, newBalance]
     );
 
-    res.json({ success: true, message: `${coins} coins credited`, availableCoins: updatedCoins });
-  } catch (error) {
-    console.error('Error crediting coins:', error);
+    res.json({
+      success: true,
+      message: `${amount} coins credited`,
+      availableCoins: newBalance,
+    });
+  } catch (err) {
+    console.error('creditCoins error:', err);
     res.status(500).json({ error: 'Internal Server Error' });
   }
 };
 
-// ➖ Apply coins
+// ➖ Apply coins using shopify_id
 exports.applyCoins = async (req, res) => {
-  const { user_id, order_id, coins_to_apply } = req.body;
-  if (!user_id || !order_id || !coins_to_apply) {
-    return res.status(400).json({ error: 'user_id, order_id, and coins_to_apply are required' });
+  const { shopify_id, order_id, coins_to_apply } = req.body;
+
+  if (!shopify_id || !order_id || !coins_to_apply) {
+    return res.status(400).json({ error: 'shopify_id, order_id, and coins_to_apply are required' });
   }
 
   try {
-    const [[user]] = await pool.query('SELECT coins FROM users WHERE id = ?', [user_id]);
+    const [[user]] = await pool.query('SELECT coins FROM users WHERE shopify_id = ?', [shopify_id]);
     if (!user) return res.status(404).json({ error: 'User not found' });
 
     if (user.coins < coins_to_apply) {
@@ -46,11 +58,11 @@ exports.applyCoins = async (req, res) => {
 
     const remainingCoins = user.coins - coins_to_apply;
 
-    await pool.query('UPDATE users SET coins = ? WHERE id = ?', [remainingCoins, user_id]);
+    await pool.query('UPDATE users SET coins = ? WHERE shopify_id = ?', [remainingCoins, shopify_id]);
 
     await pool.query(
-      'INSERT INTO coin_transactions (user_id, order_id, coins, type, available_coins) VALUES (?, ?, ?, ?, ?)',
-      [user_id, order_id, coins_to_apply, 'debit', remainingCoins]
+      'INSERT INTO coin_transactions (shopify_id, order_id, coins, type, available_coins) VALUES (?, ?, ?, ?, ?)',
+      [shopify_id, order_id, coins_to_apply, 'debit', remainingCoins]
     );
 
     res.json({ success: true, message: 'Coins applied', availableCoins: remainingCoins });
@@ -65,7 +77,7 @@ exports.getCoinHistory = async (req, res) => {
   try {
     const [rows] = await pool.query(`
       SELECT 
-        ct.user_id,
+        ct.shopify_id,
         ct.order_id,
         ct.coins,
         ct.type,
@@ -75,24 +87,25 @@ exports.getCoinHistory = async (req, res) => {
         u.email AS userEmail,
         u.mobile AS userMobile
       FROM coin_transactions ct
-      JOIN users u ON ct.user_id = u.id
+      JOIN users u ON ct.shopify_id = u.shopify_id
       ORDER BY ct.created_at DESC
     `);
 
     res.json(rows);
   } catch (error) {
     console.error('Error fetching coin history:', error);
-    res.status(500).json({ message: 'Error fetching coin history' });
+    res.status(500).json({ error: 'Error fetching coin history' });
   }
 };
 
-// 🔍 Check available coins
+// 🔍 Check coins
 exports.checkCoins = async (req, res) => {
-  const { user_id } = req.query;
-  if (!user_id) return res.status(400).json({ error: 'user_id is required' });
+  const { shopify_id } = req.query;
+
+  if (!shopify_id) return res.status(400).json({ error: 'shopify_id is required' });
 
   try {
-    const [[user]] = await pool.query('SELECT coins FROM users WHERE id = ?', [user_id]);
+    const [[user]] = await pool.query('SELECT coins FROM users WHERE shopify_id = ?', [shopify_id]);
     if (!user) return res.status(404).json({ error: 'User not found' });
 
     res.json({ success: true, coins: user.coins });
