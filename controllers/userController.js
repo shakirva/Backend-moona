@@ -10,7 +10,7 @@ const shopifyHeaders = {
   },
 };
 
-// GET all users (from local DB)
+// ✅ GET all users (from local DB)
 exports.getUsers = async (req, res) => {
   try {
     const [users] = await db.query(`
@@ -26,7 +26,7 @@ exports.getUsers = async (req, res) => {
   }
 };
 
-// Sync Shopify customers to MySQL
+// ✅ Sync Shopify customers to MySQL
 exports.syncShopifyCustomers = async (req, res) => {
   try {
     const { data } = await axios.get(SHOPIFY_API_URL, shopifyHeaders);
@@ -77,5 +77,56 @@ exports.syncShopifyCustomers = async (req, res) => {
   } catch (error) {
     console.error('Error syncing Shopify customers:', error.message);
     res.status(500).json({ error: 'Failed to sync Shopify customers' });
+  }
+};
+
+// ✅ Create User (Mobile)
+exports.createUser = async (req, res) => {
+  const { name, email, shopify_userid } = req.body;
+  if (!name || !email || !shopify_userid) {
+    return res.status(400).json({ message: 'Missing fields' });
+  }
+  try {
+    await db.query(
+      'INSERT INTO users (name, email, shopify_id) VALUES (?, ?, ?)',
+      [name, email, shopify_userid]
+    );
+    res.json({ success: true, message: 'User created successfully' });
+  } catch (error) {
+    console.error('Error creating user:', error);
+    res.status(500).json({ success: false, message: 'Failed to create user' });
+  }
+};
+
+// ✅ Save Delivery Address (Mobile)
+exports.saveAddress = async (req, res) => {
+  const { user_id, address1, address2, city, province, zip, country } = req.body;
+  if (!user_id || !address1 || !city || !zip || !country) {
+    return res.status(400).json({ message: 'Missing required fields' });
+  }
+  try {
+    await db.query(
+      'INSERT INTO user_addresses (user_id, address1, address2, city, province, zip, country) VALUES (?, ?, ?, ?, ?, ?, ?)',
+      [user_id, address1, address2 || '', city, province || '', zip, country]
+    );
+    res.json({ success: true, message: 'Address saved successfully' });
+  } catch (error) {
+    console.error('Error saving address:', error);
+    res.status(500).json({ success: false, message: 'Failed to save address' });
+  }
+};
+
+// ✅ Get All Addresses for User (Mobile)
+exports.getAllAddresses = async (req, res) => {
+  const { user_id } = req.query;
+  if (!user_id) {
+    return res.status(400).json({ message: 'User ID required' });
+  }
+  try {
+    const [rows] = await db.query('SELECT * FROM user_addresses WHERE user_id = ?', [user_id]);
+    res.json(rows);
+  } catch (error) {
+    console.error('Error fetching addresses:', error);
+    res.status(500).json({ success: false, message: 'Failed to fetch addresses' });
   }
 };

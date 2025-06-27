@@ -1,17 +1,9 @@
+// routes/walletRoutes.js
 const express = require('express');
 const router = express.Router();
 const walletController = require('../controllers/walletController');
 
-// ➕ Credit coins
-router.post('/credit', walletController.creditCoins);
-
-// ➖ Apply coins
-router.post('/apply', walletController.applyCoins);
-
-// 📜 Coin history
-router.get('/coins-history', walletController.getCoinHistory);
-
-// 🔍 Check available coins
-router.get('/check', walletController.checkCoins);
+router.get('/coin-history', walletController.getCoinHistory);
+router.get('/orders/:orderId', walletController.getOrderDetails);
 
 module.exports = router;
