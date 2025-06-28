@@ -98,32 +98,74 @@ exports.createUser = async (req, res) => {
   }
 };
 
-// ✅ Save Delivery Address (Mobile)
+
+const db = require('../config/db');
+
+// ✅ Save Delivery Address (Mobile) – Shopify ID only
 exports.saveAddress = async (req, res) => {
-  const { user_id, address1, address2, city, province, zip, country } = req.body;
-  if (!user_id || !address1 || !city || !zip || !country) {
-    return res.status(400).json({ message: 'Missing required fields' });
-  }
+  const {
+    shopify_id,
+    full_name,
+    villa_building_number,
+    zone,
+    municipality,
+    district,
+    street,
+    location_type,
+    phone_number,
+    preferred_delivery_timing,
+    free_delivery_order_amount,
+    delivery_fee,
+    status
+  } = req.body;
+
   try {
+    if (!shopify_id || !full_name || !zone || !municipality || !district || !phone_number) {
+      return res.status(400).json({ message: 'Missing required fields' });
+    }
+
     await db.query(
-      'INSERT INTO user_addresses (user_id, address1, address2, city, province, zip, country) VALUES (?, ?, ?, ?, ?, ?, ?)',
-      [user_id, address1, address2 || '', city, province || '', zip, country]
+      `INSERT INTO user_addresses (
+        shopify_id, full_name, villa_building_number, zone, municipality, district, street,
+        location_type, phone_number, preferred_delivery_timing, free_delivery_order_amount,
+        delivery_fee, status
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      [
+        shopify_id,
+        full_name,
+        villa_building_number || '',
+        zone,
+        municipality,
+        district,
+        street || '',
+        location_type || 'House',
+        phone_number,
+        preferred_delivery_timing || '',
+        free_delivery_order_amount || 200,
+        delivery_fee || 0,
+        status || 1
+      ]
     );
+
     res.json({ success: true, message: 'Address saved successfully' });
+
   } catch (error) {
     console.error('Error saving address:', error);
     res.status(500).json({ success: false, message: 'Failed to save address' });
   }
 };
 
-// ✅ Get All Addresses for User (Mobile)
+// ✅ Get All Addresses for Shopify User (Mobile)
 exports.getAllAddresses = async (req, res) => {
-  const { user_id } = req.query;
-  if (!user_id) {
-    return res.status(400).json({ message: 'User ID required' });
+  const { shopify_id } = req.query;
+  if (!shopify_id) {
+    return res.status(400).json({ message: 'Shopify ID required' });
   }
   try {
-    const [rows] = await db.query('SELECT * FROM user_addresses WHERE user_id = ?', [user_id]);
+    const [rows] = await db.query(
+      'SELECT * FROM user_addresses WHERE shopify_id = ? ORDER BY created_at DESC',
+      [shopify_id]
+    );
     res.json(rows);
   } catch (error) {
     console.error('Error fetching addresses:', error);

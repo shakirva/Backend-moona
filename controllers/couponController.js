@@ -53,12 +53,11 @@ exports.getUserCoupons = async (req, res) => {
     res.status(500).json({ success: false, message: 'Failed to fetch coupons' });
   }
 };
-
 // ✅ Mobile: Apply Coupon
 exports.applyCoupon = async (req, res) => {
-  const { user_id, order_value, coupon_code } = req.body;
+  const { order_value, coupon_code } = req.body;
 
-  if (!user_id || !order_value || !coupon_code) {
+  if (!order_value || !coupon_code) {
     return res.status(400).json({ success: false, message: 'Missing required fields.' });
   }
 
@@ -73,6 +72,7 @@ exports.applyCoupon = async (req, res) => {
     }
 
     const coupon = rows[0];
+
     if (order_value < coupon.min_order_value || order_value > coupon.max_order_value) {
       return res.status(400).json({ success: false, message: 'Order value not within coupon limits.' });
     }
@@ -84,6 +84,7 @@ exports.applyCoupon = async (req, res) => {
     res.status(500).json({ success: false, message: 'Internal Server Error' });
   }
 };
+
 
 // ✅ Mobile: Credit Coins after coupon applied successfully
 exports.creditCouponCoins = async (req, res) => {
