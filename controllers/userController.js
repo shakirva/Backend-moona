@@ -37,7 +37,7 @@ exports.syncShopifyCustomers = async (req, res) => {
       const [existing] = await db.query('SELECT id FROM users WHERE shopify_id = ?', [c.id]);
 
       const userData = [
-        c.id, // shopify_id
+        c.id,
         (c.first_name || c.last_name) ? `${c.first_name || ''} ${c.last_name || ''}`.trim() : 'N/A',
         c.email || 'N/A',
         c.phone || 'N/A',
@@ -98,10 +98,7 @@ exports.createUser = async (req, res) => {
   }
 };
 
-
-const db = require('../config/db');
-
-// ✅ Save Delivery Address (Mobile) – Shopify ID only
+// ✅ Save Delivery Address (Mobile)
 exports.saveAddress = async (req, res) => {
   const {
     shopify_id,
@@ -171,4 +168,9 @@ exports.getAllAddresses = async (req, res) => {
     console.error('Error fetching addresses:', error);
     res.status(500).json({ success: false, message: 'Failed to fetch addresses' });
   }
+};
+
+// ✅ Placeholder: define if you're using this
+exports.updateAddress = async (req, res) => {
+  res.status(501).json({ success: false, message: 'Not implemented yet' });
 };

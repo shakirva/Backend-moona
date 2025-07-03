@@ -1,4 +1,3 @@
-// routes/userRoutes.js
 const express = require('express');
 const router = express.Router();
 const userController = require('../controllers/userController');
@@ -10,8 +9,7 @@ router.get('/sync-shopify', userController.syncShopifyCustomers); // GET /api/us
 // Mobile APIs
 router.post('/create', userController.createUser); // POST /api/user/create
 router.post('/address/save', userController.saveAddress); // POST /api/user/address/save
-router.get('/address/get_all', userController.getAllAddresses); // GET /api/user/address/get_all?user_id=
-router.post('/update-address', userController.updateAddress);
-
+router.get('/address/get_all', userController.getAllAddresses); // GET /api/user/address/get_all
+router.post('/update-address', userController.updateAddress); // You can update this later
 
 module.exports = router;
