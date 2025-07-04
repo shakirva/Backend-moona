@@ -174,3 +174,59 @@ exports.getAllAddresses = async (req, res) => {
 exports.updateAddress = async (req, res) => {
   res.status(501).json({ success: false, message: 'Not implemented yet' });
 };
+
+
+
+// ✅ Shopify Webhook: Create User
+exports.createUserWebhook = async (req, res) => {
+  try {
+    const c = req.body;
+    const address = c.default_address || {};
+
+    const [existing] = await db.query('SELECT id FROM users WHERE shopify_id = ?', [c.id]);
+
+    const userData = [
+      c.id,
+      (c.first_name || c.last_name) ? `${c.first_name || ''} ${c.last_name || ''}`.trim() : 'N/A',
+      c.email || 'N/A',
+      c.phone || 'N/A',
+      parseFloat(c.total_spent || 0),
+      c.orders_count || 0,
+      c.created_at ? new Date(c.created_at) : null,
+      address.address1 || '',
+      address.address2 || '',
+      address.city || '',
+      address.province || '',
+      address.zip || '',
+      address.country || '',
+    ];
+
+    if (existing.length > 0) {
+      await db.query(
+        `UPDATE users SET
+          name = ?, email = ?, mobile = ?, shopify_total_spent = ?,
+          shopify_orders_count = ?, shopify_created_at = ?, address1 = ?,
+          address2 = ?, city = ?, province = ?, zip = ?, country = ?
+         WHERE shopify_id = ?`,
+        [...userData.slice(1), userData[0]]
+      );
+    } else {
+      await db.query(
+        `INSERT INTO users (
+          shopify_id, name, email, mobile,
+          shopify_total_spent, shopify_orders_count, shopify_created_at,
+          address1, address2, city, province, zip, country
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        userData
+      );
+    }
+
+    res.status(200).send('Customer create webhook handled');
+  } catch (error) {
+    console.error('❌ Error in createUserWebhook:', error.message);
+    res.status(500).send('Error');
+  }
+};
+
+// ✅ Shopify Webhook: Update User
+exports.updateUserWebhook = exports.createUserWebhook; // Same logic for now

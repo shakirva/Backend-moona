@@ -1,3 +1,7 @@
-firebase/serviceAccountKey.json
 .env
+node_modules/
+// .env.local
+// .env.development.local
+firebase/serviceAccountKey.json
+
 firebase/firebase-config.js

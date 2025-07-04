@@ -12,4 +12,11 @@ router.post('/address/save', userController.saveAddress); // POST /api/user/addr
 router.get('/address/get_all', userController.getAllAddresses); // GET /api/user/address/get_all
 router.post('/update-address', userController.updateAddress); // You can update this later
 
+
+
+// Shopify Webhooks
+router.post('/create', userController.createUserWebhook);  // POST /api/users/create
+router.post('/update', userController.updateUserWebhook);  // POST /api/users/update
+
+
 module.exports = router;
