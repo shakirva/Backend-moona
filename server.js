@@ -2,7 +2,7 @@
 require('dotenv').config();
 
 // Initialize Firebase if you're using notifications
-require('./firebase/firebase-config');
+// require('./firebase/firebase-config');
 
 const express = require('express');
 const cors = require('cors');

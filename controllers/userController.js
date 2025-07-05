@@ -181,6 +181,9 @@ exports.updateAddress = async (req, res) => {
 exports.createUserWebhook = async (req, res) => {
   try {
     const c = req.body;
+       console.log( "==============") ;
+
+    console.log( c) ;
     const address = c.default_address || {};
 
     const [existing] = await db.query('SELECT id FROM users WHERE shopify_id = ?', [c.id]);
