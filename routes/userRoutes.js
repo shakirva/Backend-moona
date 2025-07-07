@@ -15,8 +15,7 @@ router.post('/update-address', userController.updateAddress); // You can update 
 
 
 // Shopify Webhooks
-router.post('/create', userController.createUserWebhook);  // POST /api/users/create
-router.post('/update', userController.updateUserWebhook);  // POST /api/users/update
+router.post('/update/hook', userController.updateUserWebhook);  // POST /api/users/update
 
 
 module.exports = router;
