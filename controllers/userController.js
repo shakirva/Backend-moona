@@ -170,10 +170,65 @@ exports.getAllAddresses = async (req, res) => {
   }
 };
 
-// ✅ Placeholder: define if you're using this
+// ✅ Update Delivery Address (Mobile)
 exports.updateAddress = async (req, res) => {
-  res.status(501).json({ success: false, message: 'Not implemented yet' });
+  const {
+    address_id,
+    shopify_id,
+    full_name,
+    villa_building_number,
+    zone,
+    municipality,
+    district,
+    street,
+    location_type,
+    phone_number,
+    preferred_delivery_timing,
+    free_delivery_order_amount,
+    delivery_fee,
+    status
+  } = req.body;
+
+  if (!address_id || !shopify_id || !full_name || !zone || !municipality || !district || !phone_number) {
+    return res.status(400).json({ message: 'Missing required fields' });
+  }
+
+  try {
+    const [result] = await db.query(
+      `UPDATE user_addresses SET
+        shopify_id = ?, full_name = ?, villa_building_number = ?, zone = ?, municipality = ?, district = ?,
+        street = ?, location_type = ?, phone_number = ?, preferred_delivery_timing = ?, 
+        free_delivery_order_amount = ?, delivery_fee = ?, status = ?
+      WHERE id = ?`,
+      [
+        shopify_id,
+        full_name,
+        villa_building_number || '',
+        zone,
+        municipality,
+        district,
+        street || '',
+        location_type || 'House',
+        phone_number,
+        preferred_delivery_timing || '',
+        free_delivery_order_amount || 200,
+        delivery_fee || 0,
+        status || 1,
+        address_id
+      ]
+    );
+
+    if (result.affectedRows === 0) {
+      return res.status(404).json({ success: false, message: 'Address not found' });
+    }
+
+    res.json({ success: true, message: 'Address updated successfully' });
+  } catch (error) {
+    console.error('❌ Error updating address:', error);
+    res.status(500).json({ success: false, message: 'Failed to update address' });
+  }
 };
+
 
 
 
