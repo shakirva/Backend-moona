@@ -1,27 +1,22 @@
 // Load environment variables
 require('dotenv').config();
 
-// Initialize Firebase if you're using notifications
-// require('./firebase/firebase-config');
-
 const express = require('express');
 const cors = require('cors');
 const bodyParser = require('body-parser');
 
 const userRoutes = require('./routes/userRoutes');
-const walletRoutes = require('./routes/walletRoutes'); // 👈 includes /coin-history
-const internalUserRoutes = require('./routes/internalUsers');
-const shopifyWebhookRoutes = require('./routes/shopifyWebhookRoutes');
+const walletRoutes = require('./routes/walletRoutes');
+const internalUserRoutes = require('./routes/internalUsers'); // handles /api/login
 const adminRoutes = require('./routes/adminRoutes');
 const pointsRulesRoutes = require('./routes/pointsRules');
 const orderRoutes = require('./routes/orderRoutes');
 const settingsRoutes = require('./routes/settingsRoutes');
 const deliveryRoutes = require('./routes/deliveryRoutes');
-const couponsRoutes = require('./routes/couponsRoutes'); // ✅ includes /api/coupons
-
+const couponsRoutes = require('./routes/couponsRoutes');
 
 const app = express();
-const PORT = process.env.PORT || 5000;
+const PORT = process.env.PORT || 5001;
 
 // ✅ Enable CORS for frontend (React running on port 3000)
 app.use(cors({
@@ -32,24 +27,23 @@ app.use(cors({
 
 // ✅ Parse JSON request bodies
 app.use(express.json());
-app.use(bodyParser.json()); // Optional (use only one, express.json() is enough)
+app.use(bodyParser.json()); // Optional, express.json() is enough
 
 // ✅ Static file serving (for image uploads etc.)
 app.use('/uploads', express.static('uploads'));
 
-// ✅ Modular route mounting (do not change these names if used elsewhere)
+// ✅ Mount all routes
 app.use('/api/admin', adminRoutes);
 app.use('/api/user', userRoutes);
-app.use('/api/internal-users', internalUserRoutes);
-app.use('/api/wallet', walletRoutes); // ✅ confirms /api/wallet prefix
+app.use('/api/wallet', walletRoutes);
 app.use('/api/points-rules', pointsRulesRoutes);
 app.use('/api/orders', orderRoutes);
-app.use('/webhooks/shopify', shopifyWebhookRoutes);
 app.use('/api/settings', settingsRoutes);
 app.use('/api/delivery-settings', deliveryRoutes);
-app.use('/api/coupons', require('./routes/couponsRoutes'));
+app.use('/api/coupons', couponsRoutes);
 
-
+// ✅ Admin login route (example: POST /api/login)
+app.use('/api', internalUserRoutes);
 
 // ✅ Root test route
 app.get('/', (req, res) => {
