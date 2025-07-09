@@ -82,14 +82,16 @@ exports.syncShopifyCustomers = async (req, res) => {
 
 // ✅ Create User (Mobile)
 exports.createUser = async (req, res) => {
-  const { name, email, shopify_userid } = req.body;
-  if (!name || !email || !shopify_userid) {
+  const { name, email, shopify_userid, device_id } = req.body;
+
+  if (!name || !email || !shopify_userid || !device_id) {
     return res.status(400).json({ message: 'Missing fields' });
   }
+
   try {
     await db.query(
-      'INSERT INTO users (name, email, shopify_id) VALUES (?, ?, ?)',
-      [name, email, shopify_userid]
+      'INSERT INTO users (name, email, shopify_id, device_id) VALUES (?, ?, ?, ?)',
+      [name, email, shopify_userid, device_id]
     );
     res.json({ success: true, message: 'User created successfully' });
   } catch (error) {
@@ -97,6 +99,7 @@ exports.createUser = async (req, res) => {
     res.status(500).json({ success: false, message: 'Failed to create user' });
   }
 };
+
 
 // ✅ Save Delivery Address (Mobile)
 exports.saveAddress = async (req, res) => {

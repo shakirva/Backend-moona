@@ -35,7 +35,8 @@ app.use('/uploads', express.static('uploads'));
 // ✅ Mount all routes
 app.use('/api/admin', adminRoutes);
 app.use('/api/user', userRoutes);
-app.use('/api/wallet', walletRoutes);
+app.use('/api/wallet', require('./routes/walletRoutes'));
+
 app.use('/api/points-rules', pointsRulesRoutes);
 app.use('/api/orders', orderRoutes);
 app.use('/api/settings', settingsRoutes);
