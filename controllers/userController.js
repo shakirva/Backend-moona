@@ -291,3 +291,25 @@ exports.createUserWebhook = async (req, res) => {
 
 // ✅ Shopify Webhook: Update User
 exports.updateUserWebhook = exports.createUserWebhook; // Same logic for now
+
+
+
+
+
+
+
+exports.updateDeviceId = async (req, res) => {
+  try {
+    const { shopify_id, device_id } = req.body;
+    if (!shopify_id || !device_id) {
+      return res.status(400).json({ success: false, message: 'shopify_id and device_id required' });
+    }
+
+    await db.query('UPDATE users SET device_id = ? WHERE shopify_id = ?', [device_id, shopify_id]);
+
+    res.json({ success: true, message: 'Device ID updated' });
+  } catch (error) {
+    console.error('Error in updateDeviceId:', error);
+    res.status(500).json({ success: false, message: 'Server error' });
+  }
+};
