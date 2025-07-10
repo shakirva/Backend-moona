@@ -107,3 +107,23 @@ exports.creditCouponCoins = async (req, res) => {
     res.status(500).json({ success: false, message: 'Failed to credit coins' });
   }
 };
+
+
+
+// ✅ Delete Coupon by ID
+exports.deleteCoupon = async (req, res) => {
+  const { id } = req.params;
+
+  try {
+    const [result] = await db.query(`DELETE FROM coupons WHERE id = ?`, [id]);
+
+    if (result.affectedRows === 0) {
+      return res.status(404).json({ success: false, message: 'Coupon not found' });
+    }
+
+    res.json({ success: true, message: 'Coupon deleted successfully' });
+  } catch (error) {
+    console.error('Error deleting coupon:', error);
+    res.status(500).json({ success: false, message: 'Internal Server Error' });
+  }
+};

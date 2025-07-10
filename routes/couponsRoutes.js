@@ -8,7 +8,8 @@ const {
   createOrUpdateCoupon,
   applyCoupon,
   creditCouponCoins,
-  getUserCoupons
+  getUserCoupons,
+  deleteCoupon
 } = require('../controllers/couponController');
 
 // Admin: Get all coupons
@@ -25,5 +26,8 @@ router.post('/apply', applyCoupon);
 
 // Mobile: Credit coins after successful coupon application
 router.post('/credit', creditCouponCoins);
+
+
+router.delete('/coupons/:id', deleteCoupon);
 
 module.exports = router;

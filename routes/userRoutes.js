@@ -4,7 +4,8 @@ const userController = require('../controllers/userController');
 
 // Admin APIs
 router.get('/', userController.getUsers); // GET /api/users
-router.get('/sync-shopify', userController.syncShopifyCustomers); // GET /api/users/sync-shopify
+router.get('/sync-shopify', userController.syncShopifyCustomers); // GET /api/users/sync-
+router.get('/:shopify_id', userController.getUserDetails);
 
 // Mobile APIs
 router.post('/create', userController.createUser); // POST /api/user/create
@@ -17,6 +18,9 @@ router.post('/update-address', userController.updateAddress); // You can update 
 // Shopify Webhooks
 router.post('/create/hook', userController.createUserWebhook);  // POST /api/users/create
 router.post('/update/hook', userController.updateUserWebhook);  // POST /api/users/update
+
+
+
 
 
 module.exports = router;

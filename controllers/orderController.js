@@ -91,7 +91,7 @@ exports.updateOrderWebhook = async (req, res) => {
 
       const messageBody = statusMessages[shipmentStatus] || 'Your order status was updated';
       const [users] = await db.query('SELECT device_id FROM users WHERE shopify_id = ?', [shopifyId]);
-      const tokens = users.map(u => u.device_id).filter(token => token);
+      const tokens = users.map(u => u.device_id);
 
       if (tokens.length === 0) {
         console.log('No devices found for shopify_id:', shopifyId);
@@ -105,6 +105,9 @@ exports.updateOrderWebhook = async (req, res) => {
         },
         tokens: tokens
       };
+
+      console.log('Sending push notification to devices:', tokens);
+      
 
       const response = await admin.messaging().sendMulticast(message);
       console.log(' Push notification sent:', response);
@@ -132,19 +135,34 @@ exports.getOrderById = async (req, res) => {
 };
 
 // ✅ NEW: Get all Shopify orders with pagination
+// getAllOrders controller with pagination, search, and filter
 exports.getAllOrders = async (req, res) => {
   try {
-    const { page_info, limit = 10 } = req.query;
+    const { page_info, limit = 10, name, email, financial_status, fulfillment_status } = req.query;
 
     const url = new URL(`${SHOPIFY_ADMIN_API}/orders.json`);
     url.searchParams.append('limit', limit);
     url.searchParams.append('status', 'any');
+
     if (page_info) url.searchParams.append('page_info', page_info);
+    if (financial_status) url.searchParams.append('financial_status', financial_status);
+    if (fulfillment_status) url.searchParams.append('fulfillment_status', fulfillment_status);
+    if (name || email) url.searchParams.append('fields', 'id,email,name,customer,total_price,created_at,financial_status,fulfillment_status,currency');
 
     const response = await axios.get(url.toString(), shopifyHeaders);
+    let orders = response.data.orders || [];
+
+    // If name or email filter is passed, filter manually
+    if (name || email) {
+      orders = orders.filter(order => {
+        const matchName = name ? order.name?.toLowerCase().includes(name.toLowerCase()) : true;
+        const matchEmail = email ? order.email?.toLowerCase().includes(email.toLowerCase()) : true;
+        return matchName && matchEmail;
+      });
+    }
 
     res.set('Link', response.headers.link || '');
-    res.json(response.data);
+    res.json({ orders });
   } catch (error) {
     console.error('Shopify error:', error.response?.data || error.message);
     res.status(500).json({

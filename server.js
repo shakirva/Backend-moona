@@ -14,6 +14,7 @@ const orderRoutes = require('./routes/orderRoutes');
 const settingsRoutes = require('./routes/settingsRoutes');
 const deliveryRoutes = require('./routes/deliveryRoutes');
 const couponsRoutes = require('./routes/couponsRoutes');
+const promotionRoutes = require('./routes/promotionRoutes'); // handles /api/promotion
 
 const app = express();
 const PORT = process.env.PORT || 5001;
@@ -42,6 +43,11 @@ app.use('/api/orders', orderRoutes);
 app.use('/api/settings', settingsRoutes);
 app.use('/api/delivery-settings', deliveryRoutes);
 app.use('/api/coupons', couponsRoutes);
+app.use('/uploads', express.static('uploads')); // serve image files
+app.use('/api/promotion', promotionRoutes); // handles /api/promotion
+app.use('/api/shopify', require('./routes/shopifyRoutes'));
+
+
 
 // ✅ Admin login route (example: POST /api/login)
 app.use('/api', internalUserRoutes);

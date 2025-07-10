@@ -8,6 +8,7 @@ const shopifyHeaders = {
     'X-Shopify-Access-Token': process.env.SHOPIFY_API_PASSWORD,
     'Content-Type': 'application/json',
   },
+
 };
 
 // ✅ GET all users (from local DB)
@@ -288,6 +289,53 @@ exports.createUserWebhook = async (req, res) => {
     res.status(500).send('Error');
   }
 };
+
+
+// ✅ GET user details by Shopify ID
+exports.getUserDetails = async (req, res) => {
+  const { shopify_id } = req.params;
+
+  try {
+    const [[user]] = await db.query(
+      'SELECT * FROM users WHERE shopify_id = ?',
+      [shopify_id]
+    );
+    if (!user) return res.status(404).json({ error: 'User not found' });
+
+    const customerUrl = `https://${process.env.SHOPIFY_STORE}/admin/api/${process.env.SHOPIFY_API_VERSION}/customers/${shopify_id}.json`;
+
+    console.log('🚀 Shopify URL:', customerUrl);
+
+    const customerRes = await axios.get(customerUrl, {
+      headers: {
+        'X-Shopify-Access-Token': process.env.SHOPIFY_ACCESS_TOKEN,
+        'Content-Type': 'application/json',
+      },
+    });
+
+    const ordersUrl = `https://${process.env.SHOPIFY_STORE}/admin/api/${process.env.SHOPIFY_API_VERSION}/orders.json?customer_id=${shopify_id}&status=any`;
+
+    const ordersRes = await axios.get(ordersUrl, {
+      headers: {
+        'X-Shopify-Access-Token': process.env.SHOPIFY_ACCESS_TOKEN,
+        'Content-Type': 'application/json',
+      },
+    });
+
+    return res.json({
+      user: {
+        ...user,
+        ...customerRes.data.customer,
+      },
+      orders: ordersRes.data.orders,
+    });
+  } catch (error) {
+    console.error('🔥 Shopify API error:', error?.response?.data || error.message);
+    return res.status(500).json({ error: 'Failed to fetch user details' });
+  }
+};
+
+
 
 // ✅ Shopify Webhook: Update User
 exports.updateUserWebhook = exports.createUserWebhook; // Same logic for now
