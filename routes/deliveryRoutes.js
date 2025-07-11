@@ -4,6 +4,6 @@ const deliveryController = require('../controllers/deliveryController');
 
 router.get('/', deliveryController.getAllDeliveryLocations);
 router.post('/', deliveryController.createOrUpdateLocation);
-router.post('/validate', deliveryController.validateDeliveryLocation);
+router.get('/validate', deliveryController.validateDeliveryLocation);
 
 module.exports = router;

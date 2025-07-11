@@ -1,34 +1,49 @@
-// controllers/shopifyController.js
-const db = require('../db'); // Assuming you're using a db.js for MySQL
+const axios = require('axios');
 
-exports.getAllOrders = async (req, res) => {
+const SHOPIFY_STORE = process.env.SHOPIFY_STORE;
+const SHOPIFY_ACCESS_TOKEN = process.env.SHOPIFY_ACCESS_TOKEN;
+const SHOPIFY_API_VERSION = process.env.SHOPIFY_API_VERSION || '2024-04';
+
+const getAllOrders = async (req, res) => {
   try {
-    const response = await axios.get(`https://${SHOPIFY_STORE}/admin/api/${SHOPIFY_API_VERSION}/orders.json`, {
-      auth: {
-        username: SHOPIFY_API_KEY,
-        password: SHOPIFY_API_PASSWORD,
-      },
-    });
+    const { page = 1, limit = 10, search = '', status = '' } = req.query;
+    const offset = (page - 1) * limit;
 
-    let orders = response.data.orders;
+    let url = `https://${SHOPIFY_STORE}/admin/api/${SHOPIFY_API_VERSION}/orders.json?limit=${limit}&status=any`;
 
-    // Loop through orders and attach customer name from DB if missing
-    for (let order of orders) {
-      if (!order.customer || !order.customer.first_name) {
-        const [rows] = await db.execute(
-          `SELECT name FROM users WHERE shopify_id = ? LIMIT 1`,
-          [order.customer?.id || order.customer_id || order.id]
-        );
-        if (rows.length) {
-          const name = rows[0].name;
-          order.customer = { first_name: name, last_name: '' }; // minimal structure
-        }
-      }
+    if (search) {
+      url += `&name=${encodeURIComponent(search)}`;
     }
 
-    res.json({ orders });
+    if (status) {
+      url += `&financial_status=${encodeURIComponent(status)}`;
+    }
+
+    const response = await axios.get(url, {
+      headers: {
+        'X-Shopify-Access-Token': SHOPIFY_ACCESS_TOKEN,
+        'Content-Type': 'application/json'
+      }
+    });
+
+    const allOrders = response.data.orders || [];
+    const paginatedOrders = allOrders.slice(offset, offset + limit);
+
+    const totalOrders = allOrders.length;
+    const totalPages = Math.ceil(totalOrders / limit);
+
+    res.json({
+      currentPage: parseInt(page),
+      totalPages,
+      totalOrders,
+      orders: paginatedOrders,
+    });
   } catch (error) {
-    console.error('Error in Shopify orders list:', error?.response?.data || error.message);
+    console.error('Shopify fetch error:', error?.response?.data || error.message);
     res.status(500).json({ error: 'Failed to fetch orders from Shopify' });
   }
+};
+
+module.exports = {
+  getAllOrders,
 };

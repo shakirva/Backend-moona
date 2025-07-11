@@ -11,21 +11,69 @@ const shopifyHeaders = {
 
 };
 
-// ✅ GET all users (from local DB)
+// ✅ GET all users with pagination, search, and coin filter
 exports.getUsers = async (req, res) => {
+  const { search = '', filter = 'all', page = 1, limit = 10 } = req.query;
+  const offset = (page - 1) * limit;
+
   try {
-    const [users] = await db.query(`
+    // Base query
+    let baseQuery = `
       SELECT id, shopify_id, name, email, mobile, coins,
              shopify_total_spent, shopify_orders_count, shopify_created_at,
              address1, address2, city, province, zip, country
       FROM users
-    `);
-    res.json(users);
+      WHERE 1
+    `;
+    let countQuery = `SELECT COUNT(*) as total FROM users WHERE 1`;
+    const values = [];
+    const countValues = [];
+
+    // Search filter (by name, email, or shopify_id)
+    if (search) {
+      baseQuery += ` AND (LOWER(name) LIKE ? OR LOWER(email) LIKE ? OR shopify_id LIKE ?)`;
+      countQuery += ` AND (LOWER(name) LIKE ? OR LOWER(email) LIKE ? OR shopify_id LIKE ?)`;
+      const searchVal = `%${search.toLowerCase()}%`;
+      values.push(searchVal, searchVal, `%${search}%`);
+      countValues.push(searchVal, searchVal, `%${search}%`);
+    }
+
+    // Coin filter
+    if (filter === 'zero') {
+      baseQuery += ` AND coins = 0`;
+      countQuery += ` AND coins = 0`;
+    } else if (filter === 'positive') {
+      baseQuery += ` AND coins > 0`;
+      countQuery += ` AND coins > 0`;
+    }
+
+    // Get total count
+    const [countRows] = await db.query(countQuery, countValues);
+    const total = countRows[0]?.total || 0;
+    const totalPages = Math.ceil(total / limit);
+
+    // Add order, pagination
+    baseQuery += ` ORDER BY id DESC LIMIT ? OFFSET ?`;
+    values.push(Number(limit), Number(offset));
+
+    // Get paginated users
+    const [users] = await db.query(baseQuery, values);
+
+    res.json({
+      users,
+      pagination: {
+        total,
+        page: Number(page),
+        limit: Number(limit),
+        totalPages,
+      },
+    });
   } catch (error) {
     console.error('Error fetching users with Shopify data:', error.message);
     res.status(500).json({ error: 'Failed to load users' });
   }
 };
+
 
 // ✅ Sync Shopify customers to MySQL
 exports.syncShopifyCustomers = async (req, res) => {
