@@ -1,5 +1,5 @@
 const db = require('../config/db');
-const admin = require('../config/firebase');
+// const admin = require('../config/firebase');
 const axios = require('axios');
 
 // Shopify credentials
@@ -13,7 +13,6 @@ const shopifyHeaders = {
     'Content-Type': 'application/json',
   }
 };
-
 
 
 exports.createOrderWebhook = async (req, res) => {
@@ -91,7 +90,7 @@ exports.updateOrderWebhook = async (req, res) => {
 
       const messageBody = statusMessages[shipmentStatus] || 'Your order status was updated';
       const [users] = await db.query('SELECT device_id FROM users WHERE shopify_id = ?', [shopifyId]);
-      const tokens = users.map(u => u.device_id);
+      const tokens = users.map(u => u.device_id).filter(token => token);
 
       if (tokens.length === 0) {
         console.log('No devices found for shopify_id:', shopifyId);
@@ -106,11 +105,8 @@ exports.updateOrderWebhook = async (req, res) => {
         tokens: tokens
       };
 
-      console.log('Sending push notification to devices:', tokens);
-      
-
-      const response = await admin.messaging().sendMulticast(message);
-      console.log(' Push notification sent:', response);
+      // const response = await admin.messaging().sendMulticast(message);
+      // console.log(' Push notification sent:', response);
     }
 
     res.status(200).send('Notification sent to devices');
@@ -135,36 +131,56 @@ exports.getOrderById = async (req, res) => {
 };
 
 // ✅ NEW: Get all Shopify orders with pagination
-// getAllOrders controller with pagination, search, and filter
 exports.getAllOrders = async (req, res) => {
   try {
-    const { page_info, limit = 10, name, email, financial_status, fulfillment_status } = req.query;
+    const { pageInfo, searchParams, limit = 10 } = req.query;
+    console.log('Page Info:', searchParams);
 
-    const url = new URL(`${SHOPIFY_ADMIN_API}/orders.json`);
-    url.searchParams.append('limit', limit);
-    url.searchParams.append('status', 'any');
+    let url = new URL(`${SHOPIFY_ADMIN_API}/orders.json`);
 
-    if (page_info) url.searchParams.append('page_info', page_info);
-    if (financial_status) url.searchParams.append('financial_status', financial_status);
-    if (fulfillment_status) url.searchParams.append('fulfillment_status', fulfillment_status);
-    if (name || email) url.searchParams.append('fields', 'id,email,name,customer,total_price,created_at,financial_status,fulfillment_status,currency');
-
-    const response = await axios.get(url.toString(), shopifyHeaders);
-    let orders = response.data.orders || [];
-
-    // If name or email filter is passed, filter manually
-    if (name || email) {
-      orders = orders.filter(order => {
-        const matchName = name ? order.name?.toLowerCase().includes(name.toLowerCase()) : true;
-        const matchEmail = email ? order.email?.toLowerCase().includes(email.toLowerCase()) : true;
-        return matchName && matchEmail;
-      });
+    if (searchParams.order_id) {
+      url = new URL(`${SHOPIFY_ADMIN_API}/orders/${searchParams.order_id}.json`);
+    } else {
+      if (pageInfo && pageInfo.current_type) {
+        const link = pageInfo.current_type === 'next' ? pageInfo.next_link : pageInfo.prev_link;
+        url = new URL(link);
+      } else {
+        url.searchParams.append('limit', limit);
+        url.searchParams.append('status', 'any');
+        Object.keys(searchParams || {}).forEach((key) => {
+          if (searchParams[key]) url.searchParams.append(key, searchParams[key]);
+        });
+      }
     }
 
-    res.set('Link', response.headers.link || '');
-    res.json({ orders });
+    console.log('Final URL:', url.toString());
+
+    const response = await axios.get(url, shopifyHeaders);
+    // console.log('Res ===== ', response);
+    const orders = response.data.orders || [response.data.order];
+    let o = { orders: orders || [], prev_link: '', next_link: '' };
+
+    let urls = [];
+    if (response.headers && response.headers.link) urls = response.headers.link.split(',');
+    console.log('URLs from headers:', urls);
+
+    urls.forEach((url) => {
+      const splitted = url.split(';');
+      const link = splitted[0].replace(/<|>/g, '').trim();
+      const type = splitted[1].replace(/rel="|"$/g, '').trim();
+      if (type === 'next') {
+        o.next_link = link;
+      } else if (type === 'previous') {
+        o.prev_link = link;
+      }
+    });
+
+    console.log('prev_link =================== :', o.prev_link);
+    console.log('next_link =================== :', o.next_link);
+
+    res.json(o);
   } catch (error) {
-    console.error('Shopify error:', error.response?.data || error.message);
+    console.error(error);
     res.status(500).json({
       message: 'Failed to fetch Shopify orders.',
       error: error.response?.data?.errors || error.message
