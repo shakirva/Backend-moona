@@ -14,7 +14,7 @@ exports.sendPromotion = async (req, res) => {
     const { title, body } = req.body;
     const file = req.file;
 
-    if (!file || !title || !body) {
+    if (!title || !body) {
       return res.status(400).json({ error: 'All fields are required.' });
     }
 
@@ -30,7 +30,8 @@ exports.sendPromotion = async (req, res) => {
 
     // Send promotion push notification
     const message = {
-      notification: { title, body },
+      notification: { title: title, body: body },
+      token: tokens,
       android: {
         notification: {
           imageUrl,
@@ -46,8 +47,11 @@ exports.sendPromotion = async (req, res) => {
           image: imageUrl,
         },
       },
-      tokens,
     };
+
+    if (file) {
+      message.notification.image = imageUrl;
+    }
 
     const response = await admin.initializeFirebase().then(result).messaging().sendMulticast(message);
     console.log('Promotion sent:', response);
