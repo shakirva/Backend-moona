@@ -24,6 +24,9 @@ router.get('/user/:user_id', getUserCoupons);
 // Mobile: Apply a coupon
 router.post('/apply', applyCoupon);
 
+router.put('/coupons/:id', couponController.updateCoupon);
+  
+
 // Mobile: Credit coins after successful coupon application
 router.post('/credit', creditCouponCoins);
 

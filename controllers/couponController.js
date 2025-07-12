@@ -127,3 +127,33 @@ exports.deleteCoupon = async (req, res) => {
     res.status(500).json({ success: false, message: 'Internal Server Error' });
   }
 };
+
+
+exports.updateCoupon = async (req, res) => {
+  const { id } = req.params;
+  const {
+    name,
+    description,
+    code,
+    min_order_value,
+    max_order_value,
+    offer_percentage,
+    expiry_date,
+  } = req.body;
+
+  try {
+    const [result] = await db.query(
+      `UPDATE coupons SET name=?, description=?, code=?, min_order_value=?, max_order_value=?, offer_percentage=?, expiry_date=? WHERE id=?`,
+      [name, description, code, min_order_value, max_order_value, offer_percentage, expiry_date, id]
+    );
+
+    if (result.affectedRows === 0) {
+      return res.status(404).json({ success: false, message: 'Coupon not found' });
+    }
+
+    res.json({ success: true, message: 'Coupon updated successfully' });
+  } catch (error) {
+    console.error('Error updating coupon:', error);
+    res.status(500).json({ success: false, message: 'Internal Server Error' });
+  }
+};
