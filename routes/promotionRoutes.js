@@ -10,4 +10,6 @@ router.post(
   promotionController.sendPromotion
 );
 
+router.get('/all', promotionController.all);
+
 module.exports = router; // ✅ Must export the router directly

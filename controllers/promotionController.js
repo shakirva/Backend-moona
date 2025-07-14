@@ -67,3 +67,17 @@ exports.sendPromotion = async (req, res) => {
     return res.status(500).json({ error: 'Failed to send promotion' });
   }
 };
+
+exports.all = async (req, res) => {
+  const { pageNo, perPage } = req.query;
+  console.log('=======================', req.query);
+  console.log(pageNo, perPage);
+  
+  try {
+    const [rows] = await db.query(`SELECT * FROM promotions LIMIT ? OFFSET ?`, [Number(perPage), ((Number(pageNo) - 1) * Number(perPage))]);
+    res.json(rows);
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ error: 'Failed to fetch order' });
+  }
+};
