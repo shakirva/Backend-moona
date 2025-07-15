@@ -187,3 +187,44 @@ exports.getAllOrders = async (req, res) => {
     });
   }
 };
+
+
+
+
+
+exports.useCoinsForOrder = async (req, res) => {
+  try {
+    const { shopify_id, order_id, used_coins } = req.body;
+
+    if (!shopify_id || !order_id || !used_coins) {
+      return res.status(400).json({ message: 'Missing required fields' });
+    }
+
+    // Get last available coins
+    const [lastData] = await db.query(
+      'SELECT available_coins FROM coin_transactions WHERE shopify_id = ? ORDER BY created_at DESC LIMIT 1',
+      [shopify_id]
+    );
+
+    const currentCoins = lastData[0]?.available_coins || 0;
+
+    if (used_coins > currentCoins) {
+      return res.status(400).json({ message: 'Not enough coins to use' });
+    }
+
+    const updatedCoins = currentCoins - used_coins;
+
+    // Save new debit transaction
+    await db.query(
+      `INSERT INTO coin_transactions 
+        (shopify_id, order_id, coins, type, available_coins, created_at)
+       VALUES (?, ?, ?, 'debited', ?, NOW())`,
+      [shopify_id, order_id, used_coins, updatedCoins]
+    );
+
+    res.json({ message: `Coins debited successfully`, updated_coins: updatedCoins });
+  } catch (error) {
+    console.error('Error in useCoinsForOrder:', error.message);
+    res.status(500).json({ message: 'Failed to debit coins', error: error.message });
+  }
+};

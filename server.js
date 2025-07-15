@@ -16,6 +16,7 @@ const deliveryRoutes = require('./routes/deliveryRoutes');
 const couponsRoutes = require('./routes/couponsRoutes');
 const promotionRoutes = require('./routes/promotionRoutes');
 const shopifyRoutes = require('./routes/shopifyRoutes');
+const dashboardRoutes = require('./routes/dashboardRoutes'); // ✅ Dashboard stats route
 
 const app = express();
 const PORT = process.env.PORT || 5001;
@@ -46,7 +47,7 @@ app.use('/api/coupons', couponsRoutes);
 app.use('/api/promotion', promotionRoutes);
 app.use('/api/shopify', shopifyRoutes);
 app.use('/api/internal-users', internalUserRoutes); // ✅ Only this for internal users
-
+app.use('/api/dashboard', dashboardRoutes); // ✅ Dashboard stats route
 
 // ✅ Root test route
 app.get('/', (req, res) => {

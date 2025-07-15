@@ -10,27 +10,27 @@ const {
   creditCouponCoins,
   getUserCoupons,
   deleteCoupon,
-  updateCoupon
+  updateCoupon,
 } = require('../controllers/couponController');
 
-// Admin: Get all coupons
+// Admin panel
 router.get('/', getAllCoupons);
-
-// Admin: Create or update coupon
 router.post('/', createOrUpdateCoupon);
+router.put('/:id', updateCoupon);             // ✅ Fix: Add update route
+router.delete('/:id', deleteCoupon);          // ✅ Fix: Add delete route
 
-// Mobile: Get valid coupons for a user
+// Mobile app
 router.get('/user/:user_id', getUserCoupons);
-
-// Mobile: Apply a coupon
 router.post('/apply', applyCoupon);
-
-router.put('/coupons/:id', updateCoupon);
-
-// Mobile: Credit coins after successful coupon application
 router.post('/credit', creditCouponCoins);
 
+router.get('/test', (req, res) => {
+  res.send('Coupons route working');
+});
 
-router.delete('/coupons/:id', deleteCoupon);
+
+console.log('✅ couponsRoutes loaded');
+
+
 
 module.exports = router;

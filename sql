@@ -38,3 +38,34 @@ VALUES
 (78, 'Al Shamal', 'Zubarah', 20.00, 1, 200),
 (79, 'Al Shamal', 'Madinat ash Shamal', 20.00, 1, 200),
 (79, 'Al Shamal', 'Ar Ru''ays', 20.00, 1, 200);
+
+
+
+
+
+DROP TABLE internal_users;
+
+CREATE TABLE internal_users (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  name VARCHAR(100) NOT NULL,
+  email VARCHAR(100) NOT NULL UNIQUE,
+  password VARCHAR(255) NOT NULL,
+  mobile VARCHAR(20),
+  user_type ENUM('Admin', 'Manager', 'Employee') NOT NULL,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+
+ALTER TABLE internal_users ADD COLUMN password VARCHAR(255) NOT NULL;
+
+
+
+
+INSERT INTO internal_users (name, email, password, mobile, user_type)
+VALUES (
+  'Super Admin',
+  'superadmin@moona.com',
+  '$2b$10$ce4FjhaTxxOrPpoz1p86T..iab7De8JJCDqzt/2QPmD.s1Rjg6nDe',
+  '9800000000',
+  'Admin'
+);
