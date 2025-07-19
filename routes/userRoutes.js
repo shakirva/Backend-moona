@@ -12,6 +12,7 @@ router.post('/create', userController.createUser); // POST /api/user/create
 router.post('/address/save', userController.saveAddress); // POST /api/user/address/save
 router.get('/address/get_all', userController.getAllAddresses); // GET /api/user/address/get_all
 router.post('/update-address', userController.updateAddress); // You can update this later
+router.delete('/delete-address', userController.deleteAddress);
 
 
 

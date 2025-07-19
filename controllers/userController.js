@@ -282,6 +282,32 @@ exports.updateAddress = async (req, res) => {
 };
 
 
+// ✅ Delete Delivery Address (Mobile)
+exports.deleteAddress = async (req, res) => {
+  const { address_id, shopify_id } = req.body;
+
+  if (!address_id || !shopify_id) {
+    return res.status(400).json({ success: false, message: 'Missing address_id or shopify_id' });
+  }
+
+  try {
+    const [result] = await db.query(
+      `DELETE FROM user_addresses WHERE id = ? AND shopify_id = ?`,
+      [address_id, shopify_id]
+    );
+
+    if (result.affectedRows === 0) {
+      return res.status(404).json({ success: false, message: 'Address not found or already deleted' });
+    }
+
+    res.json({ success: true, message: 'Address deleted successfully' });
+  } catch (error) {
+    console.error('❌ Error deleting address:', error);
+    res.status(500).json({ success: false, message: 'Failed to delete address' });
+  }
+};
+
+
 
 
 // ✅ Shopify Webhook: Create User

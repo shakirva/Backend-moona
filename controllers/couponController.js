@@ -74,7 +74,7 @@ exports.applyCoupon = async (req, res) => {
     const coupon = rows[0];
 
     if (order_value < coupon.min_order_value || order_value > coupon.max_order_value) {
-      return res.status(400).json({ success: false, message: 'Order value not within coupon limits.' });
+      return res.status(200).json({ success: false, message: 'Order value not within coupon limits.' });
     }
 
     const coins = Math.floor((order_value * coupon.offer_percentage) / 100);

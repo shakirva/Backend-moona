@@ -3,9 +3,17 @@ const db = require('../config/db'); // Your DB connection
 const multer = require('multer');
 const path = require('path');
 const fs = require('fs');
+const upload = require('../middleware/upload'); // Upload middleware for handling file uploads
 
 // Save uploaded image locally (or to cloud storage if you prefer)
-const upload = multer({ dest: 'uploads/' }); // Create "uploads" dir if not exists
+const storage = multer.diskStorage({
+  destination: 'uploads/',
+  filename: (req, file, cb) => {
+    cb(null, Date.now() + path.extname(file.originalname)); // e.g., 1623337891234.jpg
+    console.log('File uploaded:', file.originalname);
+    console.log("pathextention", path.extname(file.originalname));
+  }
+});
 
 exports.uploadMiddleware = upload.single('image');
 
@@ -18,8 +26,22 @@ exports.sendPromotion = async (req, res) => {
       return res.status(400).json({ error: 'All fields are required.' });
     }
 
-    const imageUrl = `${req.protocol}://${req.get('host')}/uploads/${file.filename}`;
+if (!file){
+      return res.status
 
+    }
+
+
+    const imageUrl = `${req.protocol}://${req.get('host')}/uploads/${file.filename}`;
+    console.log('Image URL:', file.originalname);
+
+    
+
+    const [messege_data] = await db.query('INSERT INTO promotions (title, body, image_url) VALUES (?, ?, ?)', [title, body, imageUrl]);
+    console.log('Promotion saved:', messege_data);
+  
+
+    console.log('Image URL:', imageUrl);
     // Get all users with device tokens
     const [users] = await db.query('SELECT device_id FROM users WHERE device_id IS NOT NULL');
     const tokens = users.map(u => u.device_id);
@@ -52,6 +74,8 @@ exports.sendPromotion = async (req, res) => {
     if (file) {
       message.notification.image = imageUrl;
     }
+
+    
 
     const response = await admin.initializeFirebase().then(result).messaging().sendMulticast(message);
     console.log('Promotion sent:', response);

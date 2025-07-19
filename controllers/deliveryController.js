@@ -86,3 +86,26 @@ exports.validateDeliveryLocation = async (req, res) => {
     res.status(500).json({ message: 'Validation failed.' });
   }
 };
+
+
+// ✅ Delete Delivery Location (Admin)
+exports.deleteLocation = async (req, res) => {
+  const { id } = req.params;
+
+  if (!id) {
+    return res.status(400).json({ message: 'Missing location ID.' });
+  }
+
+  try {
+    const [result] = await db.query('DELETE FROM delivery_locations WHERE id = ?', [id]);
+
+    if (result.affectedRows === 0) {
+      return res.status(404).json({ message: 'Location not found or already deleted.' });
+    }
+
+    res.json({ message: 'Location deleted successfully.' });
+  } catch (err) {
+    console.error('Error deleting location:', err);
+    res.status(500).json({ message: 'Failed to delete location.' });
+  }
+};
