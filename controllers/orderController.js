@@ -1,6 +1,7 @@
 const db = require('../config/db');
 // const admin = require('../config/firebase');
 const axios = require('axios');
+const { initializeFirebase } = require('../config/firebase'); // ✅ Make sure this import exists
 
 // Shopify credentials
 const { SHOPIFY_STORE, SHOPIFY_API_VERSION } = process.env;
@@ -67,54 +68,78 @@ exports.createOrderWebhook = async (req, res) => {
   }
 };
 
+<<<<<<< HEAD
+=======
+
+
+>>>>>>> dc3e34a (env set to all page)
 exports.updateOrderWebhook = async (req, res) => {
   try {
     const order = req.body;
-    const shopifyId = order.customer?.id;
+    const shopifyId = order.customer?.id?.toString();
     const orderNumber = order.name || order.id;
 
-    console.log(' Order Update ============== :', order);
+    console.log('✅ Order Webhook Triggered');
+    console.log('🛍️ Shopify Customer ID:', shopifyId);
+    console.log('🔢 Order Number:', orderNumber);
 
     const fulfillments = order.fulfillments || [];
-    if (fulfillments.length > 0) {
-      let shipmentStatus = fulfillments[0]?.shipment_status || order.fulfillment_status || 'updated';
-      const statusMessages = {
-        confirmed: 'Shipping info received',
-        in_transit: 'Your order is on the way',
-        out_for_delivery: 'Your order is almost there!',
-        delivered: 'Your order has been delivered',
-        failure: 'Delivery attempt failed. We’ll retry shortly.',
-        unknown: 'We are checking your delivery status.',
-        updated: 'Your order has been updated'
-      };
 
-      const messageBody = statusMessages[shipmentStatus] || 'Your order status was updated';
-      const [users] = await db.query('SELECT device_id FROM users WHERE shopify_id = ?', [shopifyId]);
-      const tokens = users.map(u => u.device_id).filter(token => token);
+    // Detect status from fulfillment or fallback to order
+    let shipmentStatus = fulfillments[0]?.shipment_status || order.fulfillment_status || order.financial_status || 'updated';
 
-      if (tokens.length === 0) {
-        console.log('No devices found for shopify_id:', shopifyId);
-        return res.status(200).send('No devices to notify');
-      }
+    console.log('🚚 Shipment Status:', shipmentStatus);
 
-      const message = {
-        notification: {
-          title: 'Order Update',
-          body: `${messageBody} (Order #${orderNumber})`
-        },
-        tokens: tokens
-      };
+    const statusMessages = {
+      confirmed: 'Shipping info received',
+      in_transit: 'Your order is on the way',
+      out_for_delivery: 'Your order is almost there!',
+      delivered: 'Your order has been delivered',
+      failure: 'Delivery attempt failed. We’ll retry shortly.',
+      voided: 'Your order has been canceled',
+      refunded: 'Your order was refunded',
+      unknown: 'We are checking your delivery status.',
+      updated: 'Your order has been updated'
+    };
 
-      // const response = await admin.messaging().sendMulticast(message);
-      // console.log(' Push notification sent:', response);
+    const messageBody = statusMessages[shipmentStatus] || 'Your order status was updated';
+
+    const [users] = await db.query('SELECT device_id FROM users WHERE shopify_id = ?', [shopifyId]);
+    console.log('📱 Matched Users:', users);
+
+    const tokens = users.map(u => u.device_id).filter(Boolean);
+    console.log('📲 Device Tokens:', tokens);
+
+    if (tokens.length === 0) {
+      console.warn('⚠️ No devices found for shopify_id:', shopifyId);
+      return res.status(200).send('No devices to notify');
     }
 
-    res.status(200).send('Notification sent to devices');
+    const admin = await initializeFirebase();
+
+    const message = {
+      tokens: tokens,
+      notification: {
+        title: 'Order Update',
+        body: `${messageBody} (Order #${orderNumber})`
+      }
+    };
+
+    const response = await admin.messaging().sendEachForMulticast(message);
+    console.log('✅ Push notification sent:', response);
+
+    return res.status(200).json({
+      message: 'Order update notification sent successfully',
+      successCount: response.successCount,
+      failureCount: response.failureCount
+    });
   } catch (error) {
-    console.error('Error in updateOrderWebhook:', error.message);
+    console.error('❌ Error in updateOrderWebhook:', error.message);
     res.status(500).send('Error sending notification');
   }
 };
+
+
 
 exports.getOrderById = async (req, res) => {
   const { orderId } = req.params;

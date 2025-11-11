@@ -1,21 +1,21 @@
-const admin = require('../config/firebase'); // Firebase config
-const db = require('../config/db'); // Your DB connection
+const { initializeFirebase } = require('../config/firebase'); // Lazy Firebase initializer
+const db = require('../config/db'); // DB connection (mysql2/promise expected)
 const multer = require('multer');
 const path = require('path');
-const fs = require('fs');
-const upload = require('../middleware/upload'); // Upload middleware for handling file uploads
+const upload = require('../middleware/upload'); // Central upload middleware (already configured elsewhere)
 
-// Save uploaded image locally (or to cloud storage if you prefer)
-const storage = multer.diskStorage({
-  destination: 'uploads/',
-  filename: (req, file, cb) => {
-    cb(null, Date.now() + path.extname(file.originalname)); // e.g., 1623337891234.jpg
-    console.log('File uploaded:', file.originalname);
-    console.log("pathextention", path.extname(file.originalname));
-  }
-});
-
+// Field upload middleware (relies on existing configuration in middleware/upload.js)
 exports.uploadMiddleware = upload.single('image');
+
+// Default image when none uploaded
+const DEFAULT_IMAGE_URL = 'https://cdn-icons-png.flaticon.com/512/4138/4138124.png';
+
+// Helper: chunk an array (FCM max 500 tokens per multicast request)
+function chunkArray(arr, size = 500) {
+  const out = [];
+  for (let i = 0; i < arr.length; i += size) out.push(arr.slice(i, i + size));
+  return out;
+}
 
 exports.sendPromotion = async (req, res) => {
   try {
@@ -23,69 +23,60 @@ exports.sendPromotion = async (req, res) => {
     const file = req.file;
 
     if (!title || !body) {
-      return res.status(400).json({ error: 'All fields are required.' });
+      return res.status(400).json({ error: 'Title and body are required.' });
     }
 
-if (!file){
-      return res.status
+    // Derive image URL (uploaded or default)
+    const imageUrl = file && file.filename
+      ? `${req.protocol}://${req.get('host')}/uploads/${file.filename}`
+      : DEFAULT_IMAGE_URL;
 
-    }
+    // Persist promotion first
+    const [result] = await db.query(
+      'INSERT INTO promotions (title, body, image_url) VALUES (?, ?, ?)',
+      [title, body, imageUrl]
+    );
+    console.log('Promotion saved. InsertId:', result.insertId);
 
-
-    const imageUrl = `${req.protocol}://${req.get('host')}/uploads/${file.filename}`;
-    console.log('Image URL:', file.originalname);
-
-    
-
-    const [messege_data] = await db.query('INSERT INTO promotions (title, body, image_url) VALUES (?, ?, ?)', [title, body, imageUrl]);
-    console.log('Promotion saved:', messege_data);
-  
-
-    console.log('Image URL:', imageUrl);
-    // Get all users with device tokens
+    // Fetch device tokens
     const [users] = await db.query('SELECT device_id FROM users WHERE device_id IS NOT NULL');
-    const tokens = users.map(u => u.device_id);
+    const tokens = users.map(u => u.device_id).filter(Boolean);
 
     if (!tokens.length) {
-      return res.status(200).json({ message: 'No users to notify' });
+      return res.status(200).json({ message: 'Promotion saved, but no users to notify.' });
     }
 
-    // Send promotion push notification
-    const message = {
-      notification: { title: title, body: body },
-      token: tokens,
-      android: {
-        notification: {
-          imageUrl,
-        }
-      },
+    // Prepare base message (will add tokens per chunk)
+    const baseMessage = {
+      notification: { title, body },
+      android: { notification: { imageUrl } },
       apns: {
-        payload: {
-          aps: {
-            'mutable-content': 1,
-          },
-        },
-        fcm_options: {
-          image: imageUrl,
-        },
-      },
+        payload: { aps: { 'mutable-content': 1 } },
+        fcm_options: { image: imageUrl }
+      }
     };
 
-    if (file) {
-      message.notification.image = imageUrl;
+    const tokenChunks = chunkArray(tokens, 500);
+    let aggregateSuccess = 0;
+    let aggregateFailure = 0;
+    const responsesDetail = [];
+
+    const adminInstance = await initializeFirebase();
+    for (const chunk of tokenChunks) {
+      const multicastMessage = { ...baseMessage, tokens: chunk };
+      const response = await adminInstance.messaging().sendMulticast(multicastMessage);
+      aggregateSuccess += response.successCount;
+      aggregateFailure += response.failureCount;
+      responsesDetail.push(...response.responses);
     }
-
-    
-
-    const response = await admin.initializeFirebase().then(result).messaging().sendMulticast(message);
-    console.log('Promotion sent:', response);
 
     return res.status(200).json({
       message: 'Promotion sent successfully',
-      successCount: response.successCount,
-      failureCount: response.failureCount,
+      successCount: aggregateSuccess,
+      failureCount: aggregateFailure,
+      totalTokens: tokens.length,
+      batches: tokenChunks.length
     });
-
   } catch (error) {
     console.error('Promotion error:', error);
     return res.status(500).json({ error: 'Failed to send promotion' });
