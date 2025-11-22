@@ -165,7 +165,10 @@ exports.saveAddress = async (req, res) => {
     preferred_delivery_timing,
     free_delivery_order_amount,
     delivery_fee,
-    status
+    status,
+    latitude,
+    longitude,
+    full_address
   } = req.body;
 
   try {
@@ -173,12 +176,24 @@ exports.saveAddress = async (req, res) => {
       return res.status(400).json({ message: 'Missing required fields' });
     }
 
+    // Parse & validate coordinates if provided
+    let lat = latitude !== undefined && latitude !== '' ? parseFloat(latitude) : null;
+    let lon = longitude !== undefined && longitude !== '' ? parseFloat(longitude) : null;
+    if (lat !== null && (isNaN(lat) || lat < -90 || lat > 90)) {
+      return res.status(400).json({ success: false, message: 'Invalid latitude value' });
+    }
+    if (lon !== null && (isNaN(lon) || lon < -180 || lon > 180)) {
+      return res.status(400).json({ success: false, message: 'Invalid longitude value' });
+    }
+
+    const normalizedFullAddress = full_address || null; // allow null if not sent
+
     await db.query(
       `INSERT INTO user_addresses (
         shopify_id, full_name, villa_building_number, zone, municipality, district, street,
         location_type, phone_number, preferred_delivery_timing, free_delivery_order_amount,
-        delivery_fee, status
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        delivery_fee, status, latitude, longitude, full_address
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
         shopify_id,
         full_name,
@@ -192,7 +207,10 @@ exports.saveAddress = async (req, res) => {
         preferred_delivery_timing || '',
         free_delivery_order_amount || 200,
         delivery_fee || 0,
-        status || 1
+        status || 1,
+        lat,
+        lon,
+        normalizedFullAddress
       ]
     );
 
@@ -238,7 +256,10 @@ exports.updateAddress = async (req, res) => {
     preferred_delivery_timing,
     free_delivery_order_amount,
     delivery_fee,
-    status
+    status,
+    latitude,
+    longitude,
+    full_address
   } = req.body;
 
   if (!address_id || !shopify_id || !full_name || !zone || !municipality || !district || !phone_number) {
@@ -246,11 +267,22 @@ exports.updateAddress = async (req, res) => {
   }
 
   try {
+    // Parse & validate coordinates if provided
+    let lat = latitude !== undefined && latitude !== '' ? parseFloat(latitude) : null;
+    let lon = longitude !== undefined && longitude !== '' ? parseFloat(longitude) : null;
+    if (lat !== null && (isNaN(lat) || lat < -90 || lat > 90)) {
+      return res.status(400).json({ success: false, message: 'Invalid latitude value' });
+    }
+    if (lon !== null && (isNaN(lon) || lon < -180 || lon > 180)) {
+      return res.status(400).json({ success: false, message: 'Invalid longitude value' });
+    }
+    const normalizedFullAddress = full_address || null;
+
     const [result] = await db.query(
       `UPDATE user_addresses SET
         shopify_id = ?, full_name = ?, villa_building_number = ?, zone = ?, municipality = ?, district = ?,
         street = ?, location_type = ?, phone_number = ?, preferred_delivery_timing = ?, 
-        free_delivery_order_amount = ?, delivery_fee = ?, status = ?
+        free_delivery_order_amount = ?, delivery_fee = ?, status = ?, latitude = ?, longitude = ?, full_address = ?
       WHERE id = ?`,
       [
         shopify_id,
@@ -266,6 +298,9 @@ exports.updateAddress = async (req, res) => {
         free_delivery_order_amount || 200,
         delivery_fee || 0,
         status || 1,
+        lat,
+        lon,
+        normalizedFullAddress,
         address_id
       ]
     );

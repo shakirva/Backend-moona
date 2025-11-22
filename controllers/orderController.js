@@ -67,12 +67,6 @@ exports.createOrderWebhook = async (req, res) => {
     res.status(500).send('Error processing order');
   }
 };
-
-<<<<<<< HEAD
-=======
-
-
->>>>>>> dc3e34a (env set to all page)
 exports.updateOrderWebhook = async (req, res) => {
   try {
     const order = req.body;
